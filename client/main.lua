@@ -26,42 +26,70 @@ AddEventHandler('esx:setJob', function(job) ESX.PlayerData.job = job end)
 RegisterNetEvent('esx_doorlock:setDoorState')
 AddEventHandler('esx_doorlock:setDoorState', function(index, state) Config.DoorList[index].locked = state end)
 
+DrawText3D = function(coords, text, size,fov,camCoords)
+	local distance = #(coords - camCoords)
+
+	local scale = (size / distance) * 2
+	scale = scale * fov
+
+	SetTextScale(0.0, 0.55 * scale)
+	SetTextFont(0)
+	SetTextColour(255, 255, 255, 255)
+	SetTextDropshadow(0, 0, 0, 0, 255)
+	SetTextDropShadow()
+	SetTextOutline()
+	SetTextCentre(true)
+
+	SetDrawOrigin(coords, 0)
+	BeginTextCommandDisplayText('STRING')
+	AddTextComponentSubstringPlayerName(text)
+	EndTextCommandDisplayText(0.0, 0.0)
+	ClearDrawOrigin()
+end
+
 Citizen.CreateThread(function()
 	while true do
 		local playerCoords = GetEntityCoords(PlayerPedId())
 
 		for k,v in ipairs(Config.DoorList) do
-			v.isAuthorized = isAuthorized(v)
-
+			local genAuthorized = false
 			if v.doors then
 				for k2,v2 in ipairs(v.doors) do
-					if v2.object and DoesEntityExist(v2.object) then
-						if k2 == 1 then
-							v.distanceToPlayer = #(playerCoords - GetEntityCoords(v2.object))
-						end
-
-						if v.locked and v2.objHeading and ESX.Math.Round(GetEntityHeading(v2.object)) ~= v2.objHeading then
-							SetEntityHeading(v2.object, v2.objHeading)
+					v.distanceToPlayer = #(playerCoords - v2.objCoords)
+					if v.distanceToPlayer < 50 then
+						genAuthorized = true
+						if v2.object and DoesEntityExist(v2.object) then
+							if v.locked and v2.objHeading and ESX.Math.Round(GetEntityHeading(v2.object)) ~= v2.objHeading then
+								SetEntityHeading(v2.object, v2.objHeading)
+							end
+							FreezeEntityPosition(v2.object, v.locked)
+						else
+							v.distanceToPlayer = nil
+							v2.object = GetClosestObjectOfType(v2.objCoords, 1.0, v2.objHash, false, false, false)
 						end
 					else
-						v.distanceToPlayer = nil
-						v2.object = GetClosestObjectOfType(v2.objCoords, 1.0, v2.objHash, false, false, false)
+						break
 					end
 				end
 			else
-				if v.object and DoesEntityExist(v.object) then
-					v.distanceToPlayer = #(playerCoords - GetEntityCoords(v.object))
-
-					if v.locked and v.objHeading and ESX.Math.Round(GetEntityHeading(v.object)) ~= v.objHeading then
-						SetEntityHeading(v.object, v.objHeading)
+				v.distanceToPlayer = #(playerCoords - v.objCoords)
+				if v.distanceToPlayer < 50 then
+					genAuthorized = true
+					if v.object and DoesEntityExist(v.object) then
+						if v.locked and v.objHeading and ESX.Math.Round(GetEntityHeading(v.object)) ~= v.objHeading then
+							SetEntityHeading(v.object, v.objHeading)
+						end
+						FreezeEntityPosition(v.object, v.locked)
+					else
+						v.distanceToPlayer = nil
+						v.object = GetClosestObjectOfType(v.objCoords, 1.0, v.objHash, false, false, false)
 					end
-				else
-					v.distanceToPlayer = nil
-					v.object = GetClosestObjectOfType(v.objCoords, 1.0, v.objHash, false, false, false)
 				end
 			end
+			if genAuthorized then
+				v.isAuthorized = isAuthorized(v)
+			end
 		end
-
 		Citizen.Wait(500)
 	end
 end)
@@ -70,18 +98,12 @@ Citizen.CreateThread(function()
 	while true do
 		Citizen.Wait(0)
 		local letSleep = true
+		local camCoords = GetGameplayCamCoords()
+		local fov = (1 / GetGameplayCamFov()) * 100
 
 		for k,v in ipairs(Config.DoorList) do
 			if v.distanceToPlayer and v.distanceToPlayer < 50 then
 				letSleep = false
-
-				if v.doors then
-					for k2,v2 in ipairs(v.doors) do
-						FreezeEntityPosition(v2.object, v.locked)
-					end
-				else
-					FreezeEntityPosition(v.object, v.locked)
-				end
 			end
 
 			if v.distanceToPlayer and v.distanceToPlayer < v.maxDistance then
@@ -91,7 +113,7 @@ Citizen.CreateThread(function()
 				if v.locked then displayText = _U('locked') end
 				if v.isAuthorized then displayText = _U('press_button', displayText) end
 
-				ESX.Game.Utils.DrawText3D(v.textCoords, displayText, size)
+				DrawText3D(v.textCoords, displayText, size, fov, camCoords)
 
 				if IsControlJustReleased(0, 38) then
 					if v.isAuthorized then
