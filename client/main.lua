@@ -1,16 +1,7 @@
 ESX = nil
 
 Citizen.CreateThread(function()
-	while ESX == nil do
-		TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
-		Citizen.Wait(0)
-	end
-
-	while not ESX.GetPlayerData().job do
-		Citizen.Wait(10)
-	end
-
-	ESX.PlayerData = ESX.GetPlayerData()
+	ESX = exports['es_extended']:getSharedObject()
 
 	-- Update the door list
 	ESX.TriggerServerCallback('esx_doorlock:getDoorState', function(doorState)
