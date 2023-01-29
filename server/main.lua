@@ -1,7 +1,7 @@
 ESX = nil
 local doorState = {}
 
-TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
+ESX = exports['es_extended']:getSharedObject()
 
 RegisterServerEvent('esx_doorlock:updateState')
 AddEventHandler('esx_doorlock:updateState', function(doorIndex, state)
